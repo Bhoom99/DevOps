@@ -1,0 +1,101 @@
+from troposphere import Template, Ref, Tags, GetAtt
+from troposphere.ec2 import VPC, InternetGateway, Subnet, RouteTable, Route, SubnetRouteTableAssociation, SecurityGroup, SecurityGroupRule
+from troposphere.ec2 import Instance
+
+# Create a CloudFormation template
+template = Template()
+
+# Define VPC
+vpc = template.add_resource(
+    VPC(
+        "MyVPC",
+        CidrBlock="10.0.0.0/16",
+        Tags=Tags(Name="MyVPC")
+    )
+)
+
+# Define Internet Gateway
+internet_gateway = template.add_resource(
+    InternetGateway(
+        "InternetGateway",
+        Tags=Tags(Name="InternetGateway")
+    )
+)
+
+# Attach Internet Gateway to VPC
+gateway_attachment = template.add_resource(
+    VPCGatewayAttachment(
+        "GatewayAttachment",
+        VpcId=Ref(vpc),
+        InternetGatewayId=Ref(internet_gateway)
+    )
+)
+
+# Define a subnet
+subnet = template.add_resource(
+    Subnet(
+        "MySubnet",
+        CidrBlock="10.0.0.0/24",
+        VpcId=Ref(vpc),
+        Tags=Tags(Name="MySubnet")
+    )
+)
+
+# Define route table
+route_table = template.add_resource(
+    RouteTable(
+        "RouteTable",
+        VpcId=Ref(vpc),
+        Tags=Tags(Name="RouteTable")
+    )
+)
+
+# Associate subnet with route table
+subnet_route_table_association = template.add_resource(
+    SubnetRouteTableAssociation(
+        "SubnetRouteTableAssociation",
+        SubnetId=Ref(subnet),
+        RouteTableId=Ref(route_table)
+    )
+)
+
+# Define security group
+security_group = template.add_resource(
+    SecurityGroup(
+        "MySecurityGroup",
+        GroupDescription="Enable SSH access",
+        VpcId=Ref(vpc),
+        SecurityGroupIngress=[
+            SecurityGroupRule(
+                IpProtocol="tcp",
+                FromPort="22",
+                ToPort="22",
+                CidrIp="0.0.0.0/0"
+            )
+        ],
+        Tags=Tags(Name="MySecurityGroup")
+    )
+)
+
+# Define EC2 instance
+instance = template.add_resource(
+    Instance(
+        "MyEC2Instance",
+        ImageId="ami-12345678",  # Example AMI ID
+        InstanceType="t2.micro",
+        KeyName="my-keypair",
+        NetworkInterfaces=[
+            NetworkInterfaceProperty(
+                GroupSet=[Ref(security_group)],
+                AssociatePublicIpAddress="true",
+                DeviceIndex="0",
+                DeleteOnTermination="true",
+                SubnetId=Ref(subnet)
+            )
+        ],
+        Tags=Tags(Name="MyEC2Instance")
+    )
+)
+
+# Print out the CloudFormation template in JSON format
+print(template.to_json())
